@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const isProd = process.env.NODE_ENV === "production";
-const protectSite = process.env.PROTECT_SITE === "true"; // our switch
+export function proxy(request: NextRequest) {
+  const isProd = process.env.NODE_ENV === "production";
+  const protectSite = process.env.PROTECT_SITE === "true";
 
-export function middleware(request: NextRequest) {
-  // Only run protection in production when PROTECT_SITE=true
-  if (!(isProd && protectSite)) return NextResponse.next();
+  // Only protect in production when PROTECT_SITE=true
+  if (!(isProd && protectSite)) {
+    return NextResponse.next();
+  }
 
   const { pathname } = request.nextUrl;
 
-  // Allow login + next static assets
+  // Allow login page and static files
   if (
     pathname.startsWith("/admin/login") ||
     pathname.startsWith("/_next") ||
@@ -19,7 +21,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Everything else redirects to login (simple private mode)
+  // Redirect everything else to login
   const url = request.nextUrl.clone();
   url.pathname = "/admin/login";
   return NextResponse.redirect(url);
