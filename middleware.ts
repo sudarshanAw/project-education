@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const isProd = process.env.NODE_ENV === "production";
+const protectSite = process.env.PROTECT_SITE === "true"; // our switch
+
 export function middleware(request: NextRequest) {
+  // Only run protection in production when PROTECT_SITE=true
+  if (!(isProd && protectSite)) return NextResponse.next();
+
   const { pathname } = request.nextUrl;
 
-  // allow login route and Next.js static files
+  // Allow login + next static assets
   if (
     pathname.startsWith("/admin/login") ||
     pathname.startsWith("/_next") ||
@@ -13,16 +19,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Supabase auth stores session in localStorage on client,
-  // so for a simple MVP we protect routes client-side too.
-  // For now, redirect all non-admin routes to /admin/login
-  if (!pathname.startsWith("/admin")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin/login";
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
+  // Everything else redirects to login (simple private mode)
+  const url = request.nextUrl.clone();
+  url.pathname = "/admin/login";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
