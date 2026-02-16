@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function Home() {
+  const supabase = await createSupabaseServerClient();
+
   const { data: classes, error } = await supabase
     .from("classes")
     .select("id, name")
@@ -16,22 +18,24 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-6">
-      <h1 className="text-4xl font-bold text-blue-600 mb-4">
-        Project Education
-      </h1>
-      <p className="text-gray-700 mb-8">Select your Class to begin learning.</p>
+    <main className="min-h-screen bg-blue-600 p-6 sm:p-10">
+      <div className="max-w-6xl mx-auto">
+        <h2 className="text-3xl font-bold mb-6 text-white">Select Your Class</h2>
 
-      <div className="grid grid-cols-2 gap-6">
-        {(classes ?? []).map((cls) => (
-          <Link
-            key={cls.id}
-            href={`/class/${cls.id}`}
-            className="bg-white shadow-md rounded-xl p-6 text-center text-lg font-semibold hover:bg-blue-100 transition"
-          >
-            {cls.name}
-          </Link>
-        ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+          {(classes ?? []).map((cls) => (
+            <Link
+              key={cls.id}
+              href={`/class/${cls.id}`}
+              className="bg-white rounded-2xl shadow hover:shadow-lg transition p-8 text-center group"
+            >
+              <div className="text-4xl mb-3">📘</div>
+              <div className="text-lg font-semibold group-hover:text-blue-600 transition">
+                {cls.name}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </main>
   );

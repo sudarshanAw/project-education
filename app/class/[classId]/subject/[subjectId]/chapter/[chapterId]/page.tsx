@@ -42,23 +42,40 @@ export default async function ChapterPage({
           Questions - {chapter?.name ?? `Chapter ${chapterId}`}
         </h1>
 
-        <div className="space-y-4 mt-6">
-          {(questions ?? []).map((q) => (
-            <details key={q.id} className="bg-white rounded-xl shadow p-4">
-              <summary className="cursor-pointer font-semibold">
-                {q.question}
-                {q.difficulty ? (
-                  <span className="ml-3 text-xs text-gray-500">
-                    ({q.difficulty})
-                  </span>
-                ) : null}
-              </summary>
-              <div className="mt-3 text-gray-800 whitespace-pre-wrap">
-                {q.answer}
-              </div>
-            </details>
-          ))}
+        <div className="space-y-6 mt-6">
+  {(questions ?? []).map((q, index) => (
+    <div key={q.id} className="bg-white rounded-2xl shadow p-6">
+      <div className="flex justify-between items-center">
+        <h3 className="font-semibold text-lg">
+          Question {index + 1}
+        </h3>
+        <span className="text-xs px-3 py-1 bg-blue-100 text-blue-600 rounded-full">
+          {q.difficulty}
+        </span>
+      </div>
+
+      <p className="mt-3 text-gray-800">{q.question}</p>
+
+      <details className="mt-4">
+        <summary className="cursor-pointer text-blue-600 font-medium">
+          Show Answer
+        </summary>
+        <div className="mt-3 p-4 bg-gray-50 rounded-lg">
+          {q.answer}
         </div>
+      </details>
+    </div>
+  ))}
+</div>
+
+
+        <div className="text-sm text-gray-500 mb-4">
+  <Link href="/" className="hover:underline">Classes</Link>
+  {" / "}
+  <Link href={`/class/${classId}`} className="hover:underline">
+    Subjects
+  </Link>
+</div>
 
         {(questions ?? []).length === 0 && (
           <p className="text-gray-600 mt-6">

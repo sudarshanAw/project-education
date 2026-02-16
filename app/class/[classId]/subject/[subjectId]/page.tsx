@@ -64,6 +64,14 @@ export default async function SubjectPage({
           ))}
         </div>
 
+        <div className="text-sm text-gray-500 mb-4">
+  <Link href="/" className="hover:underline">Classes</Link>
+  {" / "}
+  <Link href={`/class/${classId}`} className="hover:underline">
+    Subjects
+  </Link>
+</div>
+
         {(chapters ?? []).length === 0 && (
           <p className="text-gray-600 mt-6">No chapters found for this subject.</p>
         )}
