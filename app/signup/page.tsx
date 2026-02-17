@@ -35,12 +35,14 @@ export default function SignupPage() {
   }
 
   // If email confirmation is required
-  if (!data.session) {
-    setErr(
-      "✅ Account created. Please verify your email before logging in."
-    );
-    return;
-  }
+if (!data.session) {
+  setEmail("");
+  setPassword("");
+
+  setErr("✅ Account created. Please verify your email before logging in.");
+  return;
+}
+
 
   // If confirmations are OFF (auto login)
   router.push("/dashboard");
