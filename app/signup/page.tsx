@@ -15,19 +15,38 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setLoading(true);
+  e.preventDefault();
+  setErr(null);
+  setLoading(true);
 
-    const { error } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/login?verified=1`,
+    },
+  });
 
-    if (error) return setErr(error.message);
+  setLoading(false);
 
-    // If email confirmations are OFF -> user is logged in immediately
-    router.push("/dashboard");
-    router.refresh();
+  if (error) {
+    setErr(error.message);
+    return;
   }
+
+  // If email confirmation is required
+  if (!data.session) {
+    setErr(
+      "✅ Account created. Please verify your email before logging in."
+    );
+    return;
+  }
+
+  // If confirmations are OFF (auto login)
+  router.push("/dashboard");
+  router.refresh();
+}
+
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 flex items-center justify-center p-6">

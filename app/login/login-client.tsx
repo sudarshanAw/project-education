@@ -15,6 +15,7 @@ export default function LoginClient() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const verified = sp.get("verified") === "1";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +35,13 @@ export default function LoginClient() {
       <div className="w-full max-w-md bg-white/10 backdrop-blur rounded-3xl border border-white/10 shadow-2xl p-8">
         <h1 className="text-3xl font-extrabold text-white">Welcome back</h1>
         <p className="text-white/70 mt-2">Login to continue your learning.</p>
+
+        {verified && (
+  <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-100">
+    ✅ Your email is verified. Please log in.
+  </div>
+)}
+
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <input
