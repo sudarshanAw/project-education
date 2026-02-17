@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ClassRow = { id: number; name: string };
 type SubjectRow = { id: number; name: string; class_id: number };
 type ChapterRow = { id: number; name: string; subject_id: number };
 
+type QuestionType = "theory" | "mcq";
+
 export default function AdminPage() {
   const router = useRouter();
+  const supabase = createSupabaseBrowserClient();
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -29,9 +32,19 @@ export default function AdminPage() {
   const [newChapterName, setNewChapterName] = useState("");
   const [selectedChapterId, setSelectedChapterId] = useState<number | "">("");
 
+  // Question states
+  const [questionType, setQuestionType] = useState<QuestionType>("theory");
   const [questionText, setQuestionText] = useState("");
   const [answerText, setAnswerText] = useState("");
+  const [explanation, setExplanation] = useState("");
   const [difficulty, setDifficulty] = useState("easy");
+
+  // MCQ states
+  const [optA, setOptA] = useState("");
+  const [optB, setOptB] = useState("");
+  const [optC, setOptC] = useState("");
+  const [optD, setOptD] = useState("");
+  const [correctOption, setCorrectOption] = useState<number>(0);
 
   const filteredSubjects = useMemo(() => {
     if (selectedClassId === "") return [];
@@ -88,11 +101,13 @@ export default function AdminPage() {
     };
 
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const logout = async () => {
     await supabase.auth.signOut();
     router.push("/admin/login");
+    router.refresh();
   };
 
   const addClass = async () => {
@@ -142,23 +157,69 @@ export default function AdminPage() {
     setMsg("✅ Chapter added!");
   };
 
+  const resetQuestionForm = () => {
+    setQuestionType("theory");
+    setQuestionText("");
+    setAnswerText("");
+    setExplanation("");
+    setDifficulty("easy");
+
+    setOptA("");
+    setOptB("");
+    setOptC("");
+    setOptD("");
+    setCorrectOption(0);
+  };
+
   const addQuestion = async () => {
     setMsg(null);
     if (selectedChapterId === "") return;
-    if (!questionText.trim() || !answerText.trim()) return;
 
-    const { error } = await supabase.from("questions").insert({
+    if (!questionText.trim()) {
+      setMsg("Question is required.");
+      return;
+    }
+
+    // Theory: needs answer
+    if (questionType === "theory" && !answerText.trim()) {
+      setMsg("Answer is required for theory questions.");
+      return;
+    }
+
+    // MCQ: needs 4 options
+    if (questionType === "mcq") {
+      const opts = [optA, optB, optC, optD].map((x) => x.trim());
+      if (opts.some((x) => !x)) {
+        setMsg("All 4 options are required for MCQ.");
+        return;
+      }
+    }
+
+    const payload: any = {
       chapter_id: selectedChapterId,
       question: questionText.trim(),
-      answer: answerText.trim(),
       difficulty,
-    });
+      question_type: questionType,
+      explanation: explanation.trim() || null,
+    };
+
+    if (questionType === "theory") {
+      payload.answer = answerText.trim();
+      payload.options = null;
+      payload.correct_option = null;
+    } else {
+      const opts = [optA, optB, optC, optD].map((x) => x.trim());
+      payload.options = opts; // jsonb array
+      payload.correct_option = correctOption; // 0..3
+      // optional: store the correct option text in answer for display/search
+      payload.answer = opts[correctOption];
+    }
+
+    const { error } = await supabase.from("questions").insert(payload);
 
     if (error) return setMsg(error.message);
 
-    setQuestionText("");
-    setAnswerText("");
-    setDifficulty("easy");
+    resetQuestionForm();
     setMsg("✅ Question added!");
   };
 
@@ -203,9 +264,7 @@ export default function AdminPage() {
         </div>
 
         {msg && (
-          <div className="mt-4 bg-white border rounded-lg p-3 text-sm">
-            {msg}
-          </div>
+          <div className="mt-4 bg-white border rounded-lg p-3 text-sm">{msg}</div>
         )}
 
         {/* Add Class */}
@@ -373,6 +432,15 @@ export default function AdminPage() {
               <option value="medium">medium</option>
               <option value="hard">hard</option>
             </select>
+
+            <select
+              className="rounded-lg border p-2"
+              value={questionType}
+              onChange={(e) => setQuestionType(e.target.value as QuestionType)}
+            >
+              <option value="theory">Theory (text answer)</option>
+              <option value="mcq">MCQ (options)</option>
+            </select>
           </div>
 
           <div className="mt-3">
@@ -385,13 +453,76 @@ export default function AdminPage() {
             />
           </div>
 
+          {/* THEORY */}
+          {questionType === "theory" && (
+            <div className="mt-3">
+              <label className="text-sm font-medium">Answer</label>
+              <textarea
+                className="mt-1 w-full rounded-lg border p-2"
+                rows={4}
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* MCQ */}
+          {questionType === "mcq" && (
+            <div className="mt-4 rounded-lg border p-4 bg-gray-50">
+              <div className="font-semibold text-sm mb-3">MCQ Options</div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  className="rounded-lg border p-2"
+                  placeholder="Option A"
+                  value={optA}
+                  onChange={(e) => setOptA(e.target.value)}
+                />
+                <input
+                  className="rounded-lg border p-2"
+                  placeholder="Option B"
+                  value={optB}
+                  onChange={(e) => setOptB(e.target.value)}
+                />
+                <input
+                  className="rounded-lg border p-2"
+                  placeholder="Option C"
+                  value={optC}
+                  onChange={(e) => setOptC(e.target.value)}
+                />
+                <input
+                  className="rounded-lg border p-2"
+                  placeholder="Option D"
+                  value={optD}
+                  onChange={(e) => setOptD(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-3">
+                <label className="text-sm font-medium">Correct Option</label>
+                <select
+                  className="mt-1 w-full rounded-lg border p-2"
+                  value={correctOption}
+                  onChange={(e) => setCorrectOption(Number(e.target.value))}
+                >
+                  <option value={0}>A</option>
+                  <option value={1}>B</option>
+                  <option value={2}>C</option>
+                  <option value={3}>D</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Explanation (optional) */}
           <div className="mt-3">
-            <label className="text-sm font-medium">Answer</label>
+            <label className="text-sm font-medium">Explanation (optional)</label>
             <textarea
               className="mt-1 w-full rounded-lg border p-2"
-              rows={4}
-              value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
+              rows={3}
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              placeholder="Explain why the answer is correct…"
             />
           </div>
 

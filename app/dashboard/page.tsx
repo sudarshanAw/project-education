@@ -8,50 +8,72 @@ export default async function DashboardPage() {
   const user = auth.user;
   if (!user) redirect("/login");
 
-  // 1) Get selected class (you said this table is already created)
-  const { data: profile } = await supabase
+  // ✅ Onboarding check: if no selected class -> choose class
+  const { data: profile, error: profileErr } = await supabase
     .from("user_profiles")
     .select("selected_class_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  if (profileErr) {
+    // if profile table has RLS misconfig etc, show error instead of infinite redirect
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-red-600">Profile error: {profileErr.message}</p>
+      </main>
+    );
+  }
+
   if (!profile?.selected_class_id) redirect("/select-class");
   const classId = profile.selected_class_id;
 
-  // 2) Fetch class name
+  // Fetch class name
   const { data: cls } = await supabase
     .from("classes")
     .select("id,name")
     .eq("id", classId)
     .single();
 
-  // 3) Total questions in this class
+  // ✅ Total questions in this class (no view needed)
+  // This joins: questions -> chapters -> subjects and filters by subjects.class_id
   const { count: totalQuestions } = await supabase
-    .from("v_question_path")
-    .select("*", { count: "exact", head: true })
-    .eq("class_id", classId);
+    .from("questions")
+    .select("id, chapters!inner(subject_id, subjects!inner(class_id))", {
+      count: "exact",
+      head: true,
+    })
+    .eq("chapters.subjects.class_id", classId);
 
-  // 4) Attempted / Correct in this class
+  // ✅ Get list of question ids in this class (lightweight)
+  const { data: qRows, error: qErr } = await supabase
+    .from("questions")
+    .select("id, chapters!inner(subjects!inner(class_id))")
+    .eq("chapters.subjects.class_id", classId);
+
+  if (qErr) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-red-600">Questions error: {qErr.message}</p>
+      </main>
+    );
+  }
+
+  const classQuestionIds = (qRows ?? []).map((r: any) => r.id);
+
+  // Attempted in this class
   const { count: attempted } = await supabase
     .from("user_question_progress")
     .select("question_id", { count: "exact", head: true })
     .eq("user_id", user.id)
-    .in(
-      "question_id",
-      supabase
-        .from("v_question_path")
-        .select("question_id")
-        .eq("class_id", classId) as any
-    );
+    .in("question_id", classQuestionIds.length ? classQuestionIds : [-1]);
 
-  const { data: correctRows } = await supabase
+  // Correct in this class
+  const { count: correct } = await supabase
     .from("user_question_progress")
-    .select("question_id")
+    .select("question_id", { count: "exact", head: true })
     .eq("user_id", user.id)
-    .eq("status", "correct");
-
-  // correct count limited to class questions (simple filter in JS)
-  const correctSet = new Set((correctRows ?? []).map((r: any) => r.question_id));
+    .eq("status", "correct")
+    .in("question_id", classQuestionIds.length ? classQuestionIds : [-1]);
 
   // Recent activity (last 5 attempts)
   const { data: recent } = await supabase
@@ -63,7 +85,7 @@ export default async function DashboardPage() {
 
   const total = totalQuestions ?? 0;
   const att = attempted ?? 0;
-  const cor = correctSet.size; // overall correct; we'll refine to class later if needed
+  const cor = correct ?? 0;
   const completion = total > 0 ? Math.round((att / total) * 100) : 0;
   const accuracy = att > 0 ? Math.round((cor / att) * 100) : 0;
 
@@ -97,8 +119,10 @@ export default async function DashboardPage() {
                 {cls?.name ?? `Class ${classId}`}
               </div>
               <div className="text-white/60 text-sm mt-2">
-                Completion: <span className="text-white/90 font-semibold">{completion}%</span> •
-                Accuracy: <span className="text-white/90 font-semibold"> {accuracy}%</span>
+                Completion:{" "}
+                <span className="text-white/90 font-semibold">{completion}%</span>{" "}
+                • Accuracy:{" "}
+                <span className="text-white/90 font-semibold">{accuracy}%</span>
               </div>
             </div>
 
@@ -156,7 +180,9 @@ export default async function DashboardPage() {
                 >
                   <div className="text-white/80">
                     Question #{r.question_id}
-                    <div className="text-white/50 text-xs mt-1">{new Date(r.updated_at).toLocaleString()}</div>
+                    <div className="text-white/50 text-xs mt-1">
+                      {new Date(r.updated_at).toLocaleString()}
+                    </div>
                   </div>
                   <div className="text-white/80 font-semibold">{r.status}</div>
                 </div>
