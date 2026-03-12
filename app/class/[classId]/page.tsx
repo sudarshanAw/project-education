@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import EsewaBuyButton from "./EsewaBuyButton";
 
 type Params = { classId: string };
 
@@ -21,12 +22,12 @@ export default async function ClassPage({
 
   const supabase = await createSupabaseServerClient();
 
-  // ✅ Must be logged in
+  // Must be logged in
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
   if (!user) redirect("/login");
 
-  // ✅ Must have selected class
+  // Must have selected class
   const { data: profile, error: profileErr } = await supabase
     .from("user_profiles")
     .select("selected_class_id")
@@ -46,7 +47,7 @@ export default async function ClassPage({
   const requestedClassId = Number(classId);
   const selectedClassId = Number(profile.selected_class_id);
 
-  // ✅ Soft lock: if user tries another class -> force back to selected one
+  // Soft lock: prevent accessing other classes
   if (requestedClassId !== selectedClassId) {
     redirect(`/class/${selectedClassId}`);
   }
@@ -58,7 +59,7 @@ export default async function ClassPage({
     .eq("id", selectedClassId)
     .single();
 
-  // Fetch subjects ONLY for selected class
+  // Fetch subjects
   const { data: subjects, error } = await supabase
     .from("subjects")
     .select("id, name, class_id, is_preview")
@@ -84,6 +85,20 @@ export default async function ClassPage({
           Subjects - {cls?.name ?? `Class ${selectedClassId}`}
         </h1>
 
+        {/* 🔒 Purchase section */}
+        <div className="mt-6 bg-white rounded-xl shadow p-6 border">
+  <h2 className="text-lg font-semibold text-gray-900">
+    Unlock Full Class Access
+  </h2>
+
+  <p className="text-sm text-gray-600 mt-1">
+    Purchase this class using eSewa to unlock all subjects, chapters and questions.
+  </p>
+
+  <EsewaBuyButton classId={selectedClassId} />
+</div>
+
+        {/* Subjects */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
           {(subjects ?? []).map((sub: any) => (
             <Link
@@ -92,11 +107,11 @@ export default async function ClassPage({
               className="bg-white rounded-xl shadow p-5 hover:bg-blue-50 transition"
             >
               <div className="text-lg font-semibold">{sub.name}</div>
+
               <div className="text-sm text-gray-500 mt-1">
                 Click to view chapters
               </div>
 
-              {/* Optional: show preview tag */}
               {sub.is_preview && (
                 <div className="mt-3 inline-flex text-xs font-semibold px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
                   Preview
@@ -107,7 +122,9 @@ export default async function ClassPage({
         </div>
 
         {(subjects ?? []).length === 0 && (
-          <p className="text-gray-600 mt-6">No subjects found for this class.</p>
+          <p className="text-gray-600 mt-6">
+            No subjects found for this class.
+          </p>
         )}
       </div>
     </main>
