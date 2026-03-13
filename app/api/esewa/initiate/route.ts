@@ -42,17 +42,7 @@ export async function POST(request: Request) {
     const formUrl = process.env.ESEWA_FORM_URL!;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
-    if (!productCode || !secretKey || !formUrl || !appUrl) {
-      return NextResponse.json(
-        { error: "Missing eSewa environment variables" },
-        { status: 500 }
-      );
-    }
-
-    // For now: fixed development amount
-    // Later we will fetch class price from DB
     const totalAmount = "100";
-
     const transactionUuid = `class-${classId}-${Date.now()}`;
 
     const signature = generateEsewaSignature({
@@ -65,7 +55,7 @@ export async function POST(request: Request) {
     const successUrl = `${appUrl}/payment/esewa/success`;
     const failureUrl = `${appUrl}/payment/esewa/failure`;
 
-    return NextResponse.json({
+    const payload = {
       formUrl,
       fields: {
         amount: totalAmount,
@@ -80,9 +70,18 @@ export async function POST(request: Request) {
         signed_field_names: "total_amount,transaction_uuid,product_code",
         signature,
       },
-    });
+    };
+
+    // 🔎 DEBUG LOG
+    console.log("====== ESEWA INIT PAYLOAD ======");
+    console.log(JSON.stringify(payload, null, 2));
+    console.log("================================");
+
+    return NextResponse.json(payload);
+
   } catch (error) {
     console.error("eSewa initiate error:", error);
+
     return NextResponse.json(
       { error: "Failed to initiate eSewa payment" },
       { status: 500 }
